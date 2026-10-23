@@ -1,172 +1,129 @@
-# College Help Desk
+# College Voice Chatbot 🎓
 
-An AI-assisted web portal that brings everyday college information and student services into one place.
+An AI-powered college assistant built with Python and Streamlit to help students access academic information through conversational text and voice interactions.
 
-Instead of walking between the library, accounts office and admin block to find out something simple, students can look it up online or ask the built-in AI assistant.
+**Project Status:** 🚧 Active Development
 
----
+## About the Project
+
+College Voice Chatbot is a work-in-progress application designed to make college-related information easier to access. It combines Google's Gemini AI with student-oriented academic features and voice interaction capabilities.
+
+The project is being developed incrementally, with new features, refinements, and improvements planned over time.
 
 ## Features
 
-### Public (no login required)
-- College information, vision and frequently asked questions
+- **AI-Powered Chatbot:** Generates conversational responses using Google's Gemini API.
+- **Student Authentication:** Student registration and login functionality.
+- **Voice Input:** Supports speech-based interaction.
+- **Text-to-Speech:** Converts responses into audio.
+- **Frequently Asked Questions:** Provides college-related information using an FAQ dataset.
+- **Academic Information:** Includes features for timetables, attendance, and assignments.
+- **Role-Based Portals:** Supports student, faculty, and administrator workflows.
+- **Database Integration:** Uses SQLite for application data.
+- **Multilingual Support:** Includes language-related capabilities that are being refined.
 
-### Registered students
-- Ask the AI assistant about college services, locations, the library and faculty
-- Check whether a book is available in the library
-- View faculty details and the holiday list
-- Find academic blocks, hostels and other campus locations
-- Check fee deposit status (view only, no online payments)
-- Submit queries to the college
-- Upload assignments and receive teacher feedback
+*Features may be incomplete or subject to change during development.*
 
-### Teachers
-- View submitted assignments and write feedback
+## Technology Stack
 
----
-
-## User Flow
-
-- **Students:** Register, log in, then use the services above.
-- **Assignments:** The student submits, the teacher reviews, and the feedback appears on the student's page.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | HTML, CSS, JavaScript |
-| Backend | Python (Flask) |
-| Database | MySQL |
-| AI | Google Gemini API |
-| Authentication | Session-based login |
-
----
-
-## Project Structure
-
-```text
-AI-powered-student-college-helpdesk/
-├── app.py                 # Flask application entry point
-├── modules/               # Chatbot logic and supporting code
-├── templates/             # HTML pages
-├── static/                # CSS, JavaScript and images
-├── screenshots/           # Images used in this README
-├── requirements.txt       # Python dependencies
-├── .env.example           # Template for environment variables
-├── .gitignore
-├── LICENSE
-└── README.md
-```
-
----
+| Technology | Purpose |
+|---|---|
+| Python | Application logic |
+| Streamlit | User interface |
+| Google Gemini API | AI-generated responses |
+| SQLite | Data storage |
+| Pandas | Data processing |
+| SpeechRecognition | Speech recognition |
+| gTTS | Text-to-speech |
+| streamlit-mic-recorder | Microphone input |
+| pydub | Audio processing |
+| bcrypt | Password hashing |
+| python-dotenv | Environment configuration |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.9 or newer
-- MySQL server
-- A Google Gemini API key
+- Python installed on your system
+- pip package manager
+- A Google Gemini API key for AI functionality
+- FFmpeg and compatible audio dependencies for relevant voice features
 
-### 1. Clone the repository
+### Installation
 
-```bash
-git clone https://github.com/Abhi5hekkumar/AI-powered-student-college-helpdesk.git
-cd AI-powered-student-college-helpdesk
+1. Clone the repository:
+
+   ```bash
+   git clone YOUR_GITHUB_REPOSITORY_URL
+   cd YOUR_PROJECT_DIRECTORY
+   ```
+
+2. Create a virtual environment:
+
+   ```bash
+   python -m venv .venv
+   ```
+
+3. Activate the environment.
+
+   **macOS/Linux:**
+
+   ```bash
+   source .venv/bin/activate
+   ```
+
+4. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. Configure your `GEMINI_API_KEY` locally using an environment variable or a `.env` file. Never commit real API keys or passwords.
+
+6. Start the application:
+
+   ```bash
+   streamlit run app.py
+   ```
+
+Additional setup may be required depending on the features you use.
+
+## Project Structure
+
+```text
+college-voice-chatbot/
+├── app.py
+├── faqs.csv
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── README.md
+├── LICENSE
+├── modules/
+└── screenshots/
 ```
 
-### 2. Create and activate a virtual environment
+The structure will evolve as the project grows. Some folders may be added as development continues.
 
-```bash
-python -m venv .venv
-```
+## Development Roadmap
 
-Windows:
+- Improve authentication and authorization.
+- Expand the FAQ dataset and academic information.
+- Refine voice recognition and multilingual interactions.
+- Improve error handling and user experience.
+- Organize code into reusable modules.
+- Add automated tests.
+- Improve database management and deployment readiness.
+- Publish a stable public demo when the application is ready.
 
-```bash
-.venv\Scripts\activate
-```
+## Current Limitations
 
-macOS / Linux:
+This project is under active development and is not yet presented as a production-ready college management system. Features, database setup, and deployment requirements may change as development progresses.
 
-```bash
-source .venv/bin/activate
-```
+## Feedback
 
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure environment variables
-
-Copy `.env.example` to `.env` and fill in your own values:
-
-```env
-GEMINI_API_KEY=your_api_key_here
-DB_HOST=localhost
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-DB_NAME=your_db_name
-SECRET_KEY=change_me
-```
-
-Never commit your real `.env` file.
-
-### 5. Set up the database
-
-Create the MySQL database and import the schema file included in the project (add the exact command here, for example `mysql -u <user> -p <db_name> < schema.sql`).
-
-### 6. Run the application
-
-```bash
-python app.py
-```
-
-Then open the address shown in the terminal (usually http://127.0.0.1:5000).
-
----
-
-## Screenshots
-
-![Home page](screenshots/home.png)
-![AI assistant](screenshots/chat.png)
-![Student dashboard](screenshots/student-dashboard.png)
-
----
-
-## Security and Privacy Notes
-
-- API keys and passwords are kept in a `.env` file, which is excluded from the repository.
-- Only teachers can review submitted assignments.
-- Students can only see their own records.
-- Demo data in this repository is fictional.
-
----
-
-## Roadmap
-
-- Multilingual assistant
-- Interactive campus map
-- Assignment deadline reminders and feedback notifications
-- Query status tracking
-- Library book reservation
-
----
+Suggestions, bug reports, and ideas for improvement are welcome.
 
 ## License
 
-Released under the [MIT License](LICENSE).
-
----
-
-## Author
-
-**Abhishek Kumar**
-
-- GitHub: [Abhi5hekkumar](https://github.com/Abhi5hekkumar)
-- LinkedIn: [Abhishek Kumar](https://www.linkedin.com/in/abhishek-kumar-94888b276)
-- Email: kumarabhishek8749@gmail.com
+Refer to the `LICENSE` file for the applicable license terms.
