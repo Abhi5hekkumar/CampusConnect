@@ -32,10 +32,15 @@ st.markdown("""
   div[data-testid="stImage"] img {max-width: 100%; height: auto; object-fit: cover;}
   div[data-testid="stFileUploader"] {min-width: 0;}
   div[data-testid="stForm"] {border: 1px solid rgba(120,130,150,.20); border-radius: 18px; padding: 1.25rem; background: rgba(120,130,150,.035);}
-  .auth-hero {padding: 1.6rem; border-radius: 20px; background: linear-gradient(135deg, #173a63, #356d9b); color: white; min-height: 100%;}
-  .auth-hero p {color: rgba(255,255,255,.88); line-height: 1.6;}
-  .auth-eyebrow {text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; font-weight: 700; color: #b9d9f7;}
-  .auth-feature {padding: .65rem .8rem; margin-top: .6rem; border: 1px solid rgba(255,255,255,.22); border-radius: 12px; background: rgba(255,255,255,.07);}
+  .auth-hero {padding: 1.25rem 1.5rem; border-radius: 16px; background: #173a63; color: white; min-height: auto; margin-bottom: 1rem;}
+  .auth-hero p {color: rgba(255,255,255,.88); line-height: 1.55; margin-bottom: 0;}
+  .auth-eyebrow {text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; font-weight: 700; color: #b9d9f7;}
+  .auth-feature {display:none;}
+  .public-info-scroll {max-height: 190px; overflow-y: auto; padding: .25rem .5rem .5rem 0; line-height: 1.55;}
+  .portal-brand {font-size: .82rem; letter-spacing: .11em; text-transform: uppercase; color: #64748b; font-weight: 700;}
+  div[data-testid="stRadio"] div[role="radiogroup"] {gap: .5rem;}
+  div[data-testid="stRadio"] label {border: 1px solid #d8dee8; border-radius: 12px; padding: .55rem .8rem; background: rgba(120,130,150,.035);}
+  
   .profile-card {padding: 1rem; border: 1px solid rgba(120,130,150,.20); border-radius: 18px; background: rgba(120,130,150,.035);}
   [data-testid="stMetric"] {background: rgba(120,120,120,.07); padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(120,120,120,.16);}
   /* Keep every navigation tab visible by wrapping tabs onto multiple rows. */
@@ -124,6 +129,7 @@ def init_database():
         conn.execute("CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, class_date TEXT NOT NULL, course TEXT, status TEXT NOT NULL CHECK(status IN ('Present','Absent','Late','Excused')), notes TEXT, UNIQUE(username,class_date,course))")
         conn.execute("CREATE TABLE IF NOT EXISTS student_queries (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, category TEXT NOT NULL, subject TEXT NOT NULL, details TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Open', admin_response TEXT, created_on TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_on TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
         conn.execute("CREATE TABLE IF NOT EXISTS password_reset_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, email TEXT, status TEXT NOT NULL DEFAULT 'Pending', created_on TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_on TEXT)")
+        conn.execute("CREATE TABLE IF NOT EXISTS faculty_access_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, full_name TEXT NOT NULL, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL, department TEXT NOT NULL, designation TEXT NOT NULL, password_hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Pending', created_on TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reviewed_on TEXT)")
         conn.execute("CREATE TABLE IF NOT EXISTS college_info (section TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL DEFAULT '')")
         conn.execute("CREATE TABLE IF NOT EXISTS campus_content (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, title TEXT NOT NULL, details TEXT, media BLOB, media_type TEXT, media_name TEXT, created_on TEXT NOT NULL DEFAULT CURRENT_DATE)")
         conn.execute("CREATE TABLE IF NOT EXISTS placement_companies (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, visit_year TEXT, notes TEXT, logo BLOB, logo_type TEXT, logo_name TEXT)")
@@ -344,110 +350,125 @@ def logout():
 
 # ---------------- Login and registration screens ----------------
 if not st.session_state.logged_in:
-    st.markdown("""
-    <div class="auth-hero">
-      <div class="auth-eyebrow">Greater Noida Institute of Technology</div>
-      <h1 style="margin:.5rem 0 .35rem 0;color:white">🎓 GNIT Student Portal</h1>
-      <p style="font-size:1.05rem;margin-bottom:1rem">One place for academic support, campus information, attendance, assignments, and student services.</p>
-      <div class="auth-feature">🤖 <b>AI Help Desk</b> — get help with college-related questions</div>
-      <div class="auth-feature">📚 <b>Academic services</b> — timetable, faculty, library, and announcements</div>
-      <div class="auth-feature">👤 <b>Your student space</b> — profile, attendance, assignments, and queries</div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.write("")
-    auth_left, auth_right = st.columns([1, 1.15], gap="large")
-    with auth_left:
-        st.subheader("Welcome back")
-        st.write("Sign in to continue to your student dashboard.")
-        with st.form("login_form", border=False):
-            login_username = st.text_input("Username", key="login_username", placeholder="Enter your username")
-            login_password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
-            login_submit = st.form_submit_button("🔐  Sign in", use_container_width=True, type="primary")
-        if login_submit:
-            user = verify_login(login_username, login_password)
-            if user:
-                st.session_state.logged_in = True
-                st.session_state.username = user["username"]
-                st.session_state.student_name = user["name"]
-                st.session_state.user_role = user["role"]
-                st.session_state.messages = []
-                st.rerun()
-            else:
-                st.error("We couldn't sign you in. Check your username and password, then try again.")
-        st.caption("Administrator access is managed separately by the project owner.")
-    with auth_right:
-        st.subheader("New to the portal?")
-        st.write("Create your student account to access college services.")
-        with st.form("register_form", clear_on_submit=False, border=False):
-            new_name = st.text_input("Full name", placeholder="As shown on your college records")
-            new_username = st.text_input("Choose a username", placeholder="At least 3 characters")
-            new_email = st.text_input("College or personal email", placeholder="you@example.com")
-            new_course = st.selectbox(
-                "Course / programme",
-                ["B.Tech CSE", "B.Tech IT", "B.Tech ECE", "B.Tech Mechanical", "MBA", "MCA", "Other"]
-            )
-            new_password = st.text_input("Create password", type="password", help="Use at least 10 characters.")
-            confirm_password = st.text_input("Confirm password", type="password")
-            register_submit = st.form_submit_button("✨  Create student account", use_container_width=True, type="primary")
-        if register_submit:
-            if new_password != confirm_password:
-                st.error("Passwords do not match. Please re-enter them.")
-            else:
-                ok, message = register_student(
-                    new_name, new_username, new_email, new_password, new_course
-                )
-                (st.success if ok else st.error)(message)
-                if ok:
-                    st.info("Your account is ready. Select the sign-in form and log in with your new credentials.")
+    st.markdown('<div class="portal-brand">Greater Noida Institute of Technology</div>', unsafe_allow_html=True)
+    st.title("College Help Desk")
+    st.markdown("Access academic services, verified campus information, and student support from one place.")
 
-    st.divider()
-    faq_col, reset_col = st.columns([1.15, 1], gap="large")
-    with faq_col:
-        with st.expander("❓ Frequently asked questions", expanded=True):
-            st.caption("Quick answers before you sign in")
-            if {"question", "answer"}.issubset(set(faq_df.columns)):
-                for _, faq_row in faq_df.fillna("").iterrows():
-                    with st.expander(str(faq_row["question"])):
-                        st.write(str(faq_row["answer"]))
-            else:
-                st.info("FAQs are unavailable because faqs.csv must contain 'question' and 'answer' columns.")
-    with reset_col:
-        with st.expander("🔑 Forgot your password?", expanded=False):
-            st.write("Submit a password-reset request. For your security, the portal will not reveal whether an account exists. An administrator will verify the request and provide a temporary password through an approved channel.")
-            with st.form("forgot_password_form", clear_on_submit=True):
-                reset_identity = st.text_input("Username or registered email", placeholder="Enter your username or email")
-                reset_submit = st.form_submit_button("Request password reset", use_container_width=True, type="primary")
-            if reset_submit:
-                identity = reset_identity.strip()
-                if identity:
-                    with db_connect() as conn:
-                        found = conn.execute("SELECT username, email FROM students WHERE (lower(username)=lower(?) OR lower(email)=lower(?)) AND role != 'admin'", (identity, identity)).fetchone()
-                        if found:
-                            pending = conn.execute("SELECT id FROM password_reset_requests WHERE username=? AND status='Pending'", (found["username"],)).fetchone()
-                            if not pending:
-                                conn.execute("INSERT INTO password_reset_requests(username,email) VALUES(?,?)", (found["username"], found["email"]))
-                            conn.commit()
-                    st.success("If the details match a student account, a reset request has been recorded. Please contact the college portal administrator for verification.")
-                else:
-                    st.warning("Enter your username or registered email to continue.")
-    st.divider()
-    st.subheader("🏛️ About GNIT")
-    with db_connect() as conn:
-        public_info = {r["section"]: dict(r) for r in conn.execute("SELECT section,title,content FROM college_info WHERE section IN ('about','mission','vision','history')").fetchall()}
-    public_cols = st.columns(2)
-    for col, key, fallback in [
-        (public_cols[0], "about", "College overview will be published by the administrator."),
-        (public_cols[1], "mission", "The official mission statement will be published by the administrator."),
-    ]:
-        with col:
-            with st.container(border=True):
-                st.markdown("#### " + public_info.get(key, {}).get("title", {"about":"About the college","mission":"Our mission"}[key]))
-                st.write(public_info.get(key, {}).get("content") or fallback)
     with st.container(border=True):
-        st.markdown("#### " + public_info.get("vision", {}).get("title", "Our vision"))
-        st.write(public_info.get("vision", {}).get("content") or "The official vision statement will be published by the administrator.")
-        st.markdown("#### " + public_info.get("history", {}).get("title", "History and founding"))
-        st.write(public_info.get("history", {}).get("content") or "Verified founding details will be published by the administrator. No founding date or founder is assumed by this portal.")
+        st.markdown("#### Sign in or request access")
+        auth_mode = st.radio("Choose your portal", ["Student", "Teacher / Faculty", "Administrator"], horizontal=True, key="auth_mode", label_visibility="collapsed")
+        if auth_mode == "Student":
+            login_tab, register_tab = st.tabs(["Student login", "Register as a student"])
+            with login_tab:
+                with st.form("login_form", border=False):
+                    login_username = st.text_input("Username", key="login_username", placeholder="Enter your username")
+                    login_password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
+                    login_submit = st.form_submit_button("Sign in to student portal", use_container_width=True, type="primary")
+                if login_submit:
+                    user = verify_login(login_username, login_password)
+                    if user and user["role"] == "student":
+                        st.session_state.logged_in=True; st.session_state.username=user["username"]; st.session_state.student_name=user["name"]; st.session_state.user_role=user["role"]; st.session_state.messages=[]; st.rerun()
+                    elif user:
+                        st.error("This account belongs to a different portal. Choose the matching portal above.")
+                    else: st.error("We couldn't sign you in. Check your username and password.")
+            with register_tab:
+                with st.form("register_form", clear_on_submit=False, border=False):
+                    new_name=st.text_input("Full name", placeholder="As shown on your college records")
+                    new_username=st.text_input("Choose a username", placeholder="At least 3 characters")
+                    new_email=st.text_input("College or personal email", placeholder="you@example.com")
+                    new_course=st.selectbox("Course / programme", ["B.Tech CSE", "B.Tech IT", "B.Tech ECE", "B.Tech Mechanical", "MBA", "MCA", "Other"])
+                    new_password=st.text_input("Create password", type="password", help="Use at least 10 characters.")
+                    confirm_password=st.text_input("Confirm password", type="password")
+                    register_submit=st.form_submit_button("Create student account", use_container_width=True, type="primary")
+                if register_submit:
+                    if new_password != confirm_password: st.error("Passwords do not match.")
+                    else:
+                        ok,message=register_student(new_name,new_username,new_email,new_password,new_course)
+                        (st.success if ok else st.error)(message)
+                        if ok: st.info("Your account is ready. Open Student login to sign in.")
+        elif auth_mode == "Teacher / Faculty":
+            st.caption("Faculty access is reviewed by the college administrator. Requests do not grant access automatically.")
+            request_tab, faculty_login_tab = st.tabs(["Request faculty access", "Faculty login"])
+            with request_tab:
+                with st.form("faculty_request_form", clear_on_submit=True):
+                    fac_name=st.text_input("Full name")
+                    fac_username=st.text_input("Choose username")
+                    fac_email=st.text_input("Official / college email")
+                    fac_department=st.selectbox("Department", ["Computer Science & Engineering", "Information Technology", "Electronics & Communication", "Mechanical Engineering", "Management", "Applied Sciences", "Administration", "Other"])
+                    fac_designation=st.text_input("Designation", placeholder="e.g. Assistant Professor")
+                    fac_password=st.text_input("Create password", type="password", help="Use at least 10 characters.")
+                    fac_confirm=st.text_input("Confirm password", type="password")
+                    fac_submit=st.form_submit_button("Submit faculty access request", use_container_width=True, type="primary")
+                if fac_submit:
+                    if not all([fac_name.strip(),fac_username.strip(),fac_email.strip(),fac_department,fac_designation.strip()]): st.error("Please complete every field.")
+                    elif len(fac_username.strip())<3: st.error("Username must contain at least 3 characters.")
+                    elif len(fac_password)<10: st.error("Password must contain at least 10 characters.")
+                    elif fac_password != fac_confirm: st.error("Passwords do not match.")
+                    else:
+                        try:
+                            with db_connect() as conn:
+                                existing=conn.execute("SELECT username FROM students WHERE lower(username)=lower(?) UNION SELECT username FROM faculty_access_requests WHERE lower(username)=lower(?)",(fac_username.strip(),fac_username.strip())).fetchone()
+                                if existing: st.error("That username is already in use. Choose another.")
+                                else:
+                                    conn.execute("INSERT INTO faculty_access_requests(full_name,username,email,department,designation,password_hash) VALUES(?,?,?,?,?,?)",(fac_name.strip(),fac_username.strip(),fac_email.strip(),fac_department,fac_designation.strip(),hash_password(fac_password)))
+                                    conn.commit(); st.success("Request submitted. The administrator must approve it before faculty access is enabled.")
+                        except sqlite3.IntegrityError: st.error("A request already exists for this username.")
+            with faculty_login_tab:
+                st.info("Faculty sign-in will be enabled after your request is approved. If already approved, use the credentials confirmed by the administrator.")
+                with st.form("faculty_login_form"):
+                    faculty_login_username=st.text_input("Faculty username", key="faculty_login_username")
+                    faculty_login_password=st.text_input("Password", type="password", key="faculty_login_password")
+                    faculty_login_submit=st.form_submit_button("Faculty sign-in", use_container_width=True, type="primary")
+                if faculty_login_submit:
+                    user=verify_login(faculty_login_username,faculty_login_password)
+                    if user and user["role"] == "faculty":
+                        st.session_state.logged_in=True; st.session_state.username=user["username"]; st.session_state.student_name=user["name"]; st.session_state.user_role="faculty"; st.session_state.messages=[]; st.rerun()
+                    elif user: st.error("This account does not have approved faculty access.")
+                    else: st.error("Sign-in failed. Check your credentials or wait for administrator approval.")
+        else:
+            st.caption("Restricted area for the designated administrator. Access is verified against the configured admin account.")
+            with st.form("admin_login_form"):
+                admin_username=st.text_input("Administrator username", key="admin_login_username")
+                admin_password=st.text_input("Administrator password", type="password", key="admin_login_password")
+                admin_submit=st.form_submit_button("Administrator sign in", use_container_width=True, type="primary")
+            if admin_submit:
+                user=verify_login(admin_username,admin_password)
+                if user and user["role"] == "admin":
+                    st.session_state.logged_in=True; st.session_state.username=user["username"]; st.session_state.student_name=user["name"]; st.session_state.user_role="admin"; st.session_state.messages=[]; st.rerun()
+                else: st.error("Administrator sign-in failed. Use the configured administrator account.")
+
+    st.markdown("### College information")
+    with db_connect() as conn:
+        public_info={r["section"]:dict(r) for r in conn.execute("SELECT section,title,content FROM college_info WHERE section IN ('about','mission','vision','history')").fetchall()}
+    info_tabs=st.tabs(["About us", "Mission", "Vision", "History"])
+    info_defaults={"about":("About the college","College overview will be published by the administrator."),"mission":("Our mission","The official mission statement will be published by the administrator."),"vision":("Our vision","The official vision statement will be published by the administrator."),"history":("History and founding","Verified founding details will be published by the administrator.")}
+    for tab,key in zip(info_tabs,["about","mission","vision","history"]):
+        with tab:
+            info=public_info.get(key,{})
+            st.markdown("#### "+info.get("title",info_defaults[key][0]))
+            st.markdown('<div class="public-info-scroll">'+(info.get("content") or info_defaults[key][1]).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\n","<br><br>")+'</div>',unsafe_allow_html=True)
+
+    with st.expander("Frequently asked questions", expanded=False):
+        if {"question","answer"}.issubset(set(faq_df.columns)):
+            for _,faq_row in faq_df.fillna("").iterrows():
+                with st.expander(str(faq_row["question"])): st.write(str(faq_row["answer"]))
+        else: st.info("FAQs are unavailable because faqs.csv must contain 'question' and 'answer' columns.")
+    with st.expander("Forgot your password?", expanded=False):
+        st.write("Submit a password-reset request. The administrator will verify your account before taking action.")
+        with st.form("forgot_password_form", clear_on_submit=True):
+            reset_identity=st.text_input("Username or registered email")
+            reset_submit=st.form_submit_button("Request password reset")
+        if reset_submit:
+            identity=reset_identity.strip()
+            if identity:
+                with db_connect() as conn:
+                    found=conn.execute("SELECT username,email FROM students WHERE (lower(username)=lower(?) OR lower(email)=lower(?)) AND role != 'admin'",(identity,identity)).fetchone()
+                    if found:
+                        pending=conn.execute("SELECT id FROM password_reset_requests WHERE username=? AND status='Pending'",(found["username"],)).fetchone()
+                        if not pending: conn.execute("INSERT INTO password_reset_requests(username,email) VALUES(?,?)",(found["username"],found["email"]))
+                        conn.commit()
+                st.success("If the details match an account, a reset request has been recorded.")
+            else: st.warning("Enter your username or registered email.")
     st.stop()
 
 # Verify role from database on every app rerun, rather than trusting only session state.
@@ -478,7 +499,7 @@ if st.session_state.user_role == "admin":
     c1.metric("Students", student_count); c2.metric("Timetable rows", timetable_count)
     c3.metric("Faculty", faculty_count); c4.metric("Book titles", book_count)
     st.caption("Changes saved here appear in the student portal. Enter only verified college information.")
-    admin_tabs = st.tabs(["Students & security", "Password resets", "Attendance", "Assignments", "Student queries", "Timetable", "Faculty", "Holidays", "Library", "Campus locations", "Announcements", "Fees & student summary", "College information", "Placements", "Campus life & events", "Assignment submissions"])
+    admin_tabs = st.tabs(["Students & security", "Faculty access requests", "Password resets", "Attendance", "Assignments", "Student queries", "Timetable", "Faculty", "Holidays", "Library", "Campus locations", "Announcements", "Fees & student summary", "College information", "Placements", "Campus life & events", "Assignment submissions"])
 
     with admin_tabs[0]:
         st.subheader("Student accounts & access control")
@@ -498,6 +519,31 @@ if st.session_state.user_role == "admin":
         st.warning("Only suspend accounts when authorized. This does not delete student records.")
 
     with admin_tabs[1]:
+        st.subheader("Teacher / faculty access requests")
+        with db_connect() as conn:
+            requests=[dict(r) for r in conn.execute("SELECT id,full_name,username,email,department,designation,status,created_on FROM faculty_access_requests ORDER BY created_on DESC").fetchall()]
+        if not requests:
+            st.info("No faculty access requests have been submitted yet.")
+        else:
+            st.dataframe(requests,use_container_width=True,hide_index=True)
+            pending=[r for r in requests if r["status"]=="Pending"]
+            if pending:
+                chosen_request=st.selectbox("Choose a pending request",pending,format_func=lambda r:f"{r['full_name']} · {r['department']} · @{r['username']}",key="faculty_request_choice")
+                review_note=st.text_input("Optional review note",key="faculty_review_note")
+                approve_col,reject_col=st.columns(2)
+                with approve_col:
+                    if st.button("Approve faculty request",type="primary",use_container_width=True):
+                        with db_connect() as conn:
+                            conn.execute("INSERT INTO students(username,password,name,fee_status,course,email,role,active) VALUES(?,?,?,'N/A',?,?, 'faculty',1)",(chosen_request["username"],conn.execute("SELECT password_hash FROM faculty_access_requests WHERE id=?",(chosen_request["id"],)).fetchone()[0],chosen_request["full_name"],chosen_request["department"],chosen_request["email"]))
+                            conn.execute("INSERT INTO faculty(name,department,designation,email) VALUES(?,?,?,?) ON CONFLICT DO NOTHING",(chosen_request["full_name"],chosen_request["department"],chosen_request["designation"],chosen_request["email"]))
+                            conn.execute("UPDATE faculty_access_requests SET status='Approved',reviewed_on=CURRENT_TIMESTAMP WHERE id=?",(chosen_request["id"],)); conn.commit()
+                        st.success("Faculty request approved. Note: faculty workspace features will be added in the next implementation step."); st.rerun()
+                with reject_col:
+                    if st.button("Reject request",use_container_width=True):
+                        with db_connect() as conn: conn.execute("UPDATE faculty_access_requests SET status='Rejected',reviewed_on=CURRENT_TIMESTAMP WHERE id=?",(chosen_request["id"],)); conn.commit()
+                        st.success("Request rejected."); st.rerun()
+
+    with admin_tabs[2]:
         st.subheader("Password reset requests")
         st.caption("Verify the student's identity before issuing a temporary password. Share it only through an approved private channel.")
         with db_connect() as conn:
@@ -525,7 +571,7 @@ if st.session_state.user_role == "admin":
                     st.session_state.pop("issued_temp_username", None)
                     st.rerun()
 
-    with admin_tabs[2]:
+    with admin_tabs[3]:
         st.subheader("Record attendance")
         with db_connect() as conn:
             students = [dict(r) for r in conn.execute("SELECT username,name,course FROM students WHERE role='student' AND active=1 ORDER BY name").fetchall()]
@@ -544,7 +590,7 @@ if st.session_state.user_role == "admin":
         with db_connect() as conn: attendance_rows = conn.execute("SELECT a.class_date,s.name,a.course,a.status,a.notes FROM attendance a JOIN students s ON s.username=a.username ORDER BY a.class_date DESC LIMIT 300").fetchall()
         if attendance_rows: st.dataframe([dict(r) for r in attendance_rows], use_container_width=True, hide_index=True)
 
-    with admin_tabs[3]:
+    with admin_tabs[4]:
         st.subheader("Assignments & deadlines")
         with db_connect() as conn: assignment_rows = conn.execute("SELECT * FROM assignments ORDER BY due_date").fetchall()
         if assignment_rows: st.dataframe([dict(r) for r in assignment_rows], use_container_width=True, hide_index=True)
@@ -564,7 +610,7 @@ if st.session_state.user_role == "admin":
                 with db_connect() as conn: conn.execute("DELETE FROM assignments WHERE id=?",(int(aid),)); conn.commit()
                 st.success("Assignment deleted."); st.rerun()
 
-    with admin_tabs[4]:
+    with admin_tabs[5]:
         st.subheader("Student queries & complaints")
         with db_connect() as conn: query_rows = conn.execute("SELECT q.*,s.name FROM student_queries q LEFT JOIN students s ON s.username=q.username ORDER BY CASE q.status WHEN 'Open' THEN 0 WHEN 'In progress' THEN 1 ELSE 2 END, q.created_on DESC").fetchall()
         if query_rows:
@@ -582,7 +628,7 @@ if st.session_state.user_role == "admin":
                             st.success("Response saved."); st.rerun()
         else: st.info("No student queries submitted yet.")
 
-    with admin_tabs[5]:
+    with admin_tabs[6]:
         st.subheader("Manage course timetable")
         with db_connect() as conn:
             timetable_rows = conn.execute("SELECT id, course, day, schedule FROM timetables ORDER BY course, id").fetchall()
@@ -602,7 +648,7 @@ if st.session_state.user_role == "admin":
                     st.success("Timetable row added."); st.rerun()
                 else: st.error("Enter a schedule.")
 
-    with admin_tabs[6]:
+    with admin_tabs[7]:
         st.subheader("Faculty directory")
         with db_connect() as conn: rows = conn.execute("SELECT * FROM faculty ORDER BY name").fetchall()
         if rows: st.dataframe([dict(r) for r in rows], use_container_width=True, hide_index=True)
@@ -620,7 +666,7 @@ if st.session_state.user_role == "admin":
                 with db_connect() as conn: conn.execute("DELETE FROM faculty WHERE id=?", (int(faculty_delete),)); conn.commit()
                 st.success("Faculty removed."); st.rerun()
 
-    with admin_tabs[7]:
+    with admin_tabs[8]:
         st.subheader("College holidays")
         with db_connect() as conn: rows = conn.execute("SELECT * FROM holidays ORDER BY date").fetchall()
         if rows: st.dataframe([dict(r) for r in rows], use_container_width=True, hide_index=True)
@@ -637,7 +683,7 @@ if st.session_state.user_role == "admin":
                 with db_connect() as conn: conn.execute("DELETE FROM holidays WHERE id=?", (int(holiday_delete),)); conn.commit()
                 st.success("Holiday removed."); st.rerun()
 
-    with admin_tabs[8]:
+    with admin_tabs[9]:
         st.subheader("Library inventory")
         with db_connect() as conn: rows = conn.execute("SELECT * FROM library_books ORDER BY title").fetchall()
         if rows: st.dataframe([dict(r) for r in rows], use_container_width=True, hide_index=True)
@@ -655,7 +701,7 @@ if st.session_state.user_role == "admin":
                 with db_connect() as conn: conn.execute("DELETE FROM library_books WHERE id=?", (int(book_delete),)); conn.commit()
                 st.success("Book removed."); st.rerun()
 
-    with admin_tabs[9]:
+    with admin_tabs[10]:
         st.subheader("Campus locations")
         with db_connect() as conn: rows = conn.execute("SELECT * FROM campus_locations ORDER BY name").fetchall()
         if rows: st.dataframe([dict(r) for r in rows], use_container_width=True, hide_index=True)
@@ -673,7 +719,7 @@ if st.session_state.user_role == "admin":
                 with db_connect() as conn: conn.execute("DELETE FROM campus_locations WHERE id=?", (int(loc_delete),)); conn.commit()
                 st.success("Location removed."); st.rerun()
 
-    with admin_tabs[10]:
+    with admin_tabs[11]:
         st.subheader("Announcements")
         with db_connect() as conn: rows = conn.execute("SELECT * FROM announcements ORDER BY posted_on DESC, id DESC").fetchall()
         if rows: st.dataframe([dict(r) for r in rows], use_container_width=True, hide_index=True)
@@ -689,7 +735,7 @@ if st.session_state.user_role == "admin":
             if st.button("Delete announcement") and ann_delete != "None":
                 with db_connect() as conn: conn.execute("DELETE FROM announcements WHERE id=?", (int(ann_delete),)); conn.commit()
                 st.success("Announcement removed."); st.rerun()
-    with admin_tabs[11]:
+    with admin_tabs[12]:
         st.subheader("💳 Fees and student academic summary")
         with db_connect() as conn:
             fee_students = [dict(r) for r in conn.execute("SELECT username,name,email,course,fee_status FROM students WHERE role='student' ORDER BY name").fetchall()]
@@ -709,7 +755,7 @@ if st.session_state.user_role == "admin":
             summary_rows.append({"Student":r["name"],"Username":r["username"],"Course":r["course"],"Classes recorded":total,"Present / late":attended,"Attendance %":round(attended*100/total,1) if total else 0})
         st.dataframe(summary_rows, use_container_width=True, hide_index=True)
 
-    with admin_tabs[12]:
+    with admin_tabs[13]:
         st.subheader("🏛️ Public college information")
         st.caption("Enter verified official information. These sections appear on the sign-in page.")
         with db_connect() as conn: current_info={r["section"]:dict(r) for r in conn.execute("SELECT * FROM college_info").fetchall()}
@@ -722,7 +768,7 @@ if st.session_state.user_role == "admin":
                     with db_connect() as conn: conn.execute("INSERT INTO college_info(section,title,content) VALUES(?,?,?) ON CONFLICT(section) DO UPDATE SET title=excluded.title,content=excluded.content",(key,title.strip() or label,content.strip())); conn.commit()
                     st.success(label+" saved."); st.rerun()
 
-    with admin_tabs[13]:
+    with admin_tabs[14]:
         st.subheader("🎯 Placements and visiting companies")
         with db_connect() as conn: companies=[dict(r) for r in conn.execute("SELECT id,name,visit_year,notes,logo_type,logo_name FROM placement_companies ORDER BY visit_year DESC,name").fetchall()]
         if companies: st.dataframe(companies,use_container_width=True,hide_index=True)
@@ -741,7 +787,7 @@ if st.session_state.user_role == "admin":
                 with db_connect() as conn: conn.execute("DELETE FROM placement_companies WHERE id=?",(int(del_company.split(" — ")[0]),)); conn.commit()
                 st.success("Company removed."); st.rerun()
 
-    with admin_tabs[14]:
+    with admin_tabs[15]:
         st.subheader("🏟️ Campus life, facilities, and upcoming events")
         category=st.selectbox("Content category",["Hostel facilities","Sports facilities","Grounds","Fests and celebrations","Campus facilities","Other"],key="campus_category")
         with st.form("campus_life_form"):
@@ -774,7 +820,7 @@ if st.session_state.user_role == "admin":
         with db_connect() as conn: event_rows=[dict(r) for r in conn.execute("SELECT * FROM college_events ORDER BY event_date").fetchall()]
         if event_rows: st.dataframe(event_rows,use_container_width=True,hide_index=True)
 
-    with admin_tabs[15]:
+    with admin_tabs[16]:
         st.subheader("📥 Assignment submissions")
         with db_connect() as conn:
             submissions=[dict(r) for r in conn.execute("SELECT sub.id,sub.assignment_id,sub.username,s.name,a.title,sub.submitted_on,sub.file_name,sub.status,sub.feedback FROM assignment_submissions sub JOIN students s ON s.username=sub.username JOIN assignments a ON a.id=sub.assignment_id ORDER BY sub.submitted_on DESC").fetchall()]
@@ -791,6 +837,49 @@ if st.session_state.user_role == "admin":
                     st.success("Submission review saved."); st.rerun()
         else: st.info("No assignments have been submitted yet.")
 
+    st.stop()
+
+# ---------------- Faculty dashboard ----------------
+if st.session_state.user_role == "faculty":
+    with st.sidebar:
+        st.markdown(f"**Signed in:** {st.session_state.student_name}")
+        st.caption("Role: Approved faculty")
+        if st.button("Log out", use_container_width=True, key="faculty_logout"):
+            logout()
+    st.title("Faculty workspace")
+    st.caption("Publish academic updates and assignments for students. Use verified information only.")
+    faculty_tabs=st.tabs(["Overview", "Publish announcement", "Create assignment", "Faculty directory"])
+    with faculty_tabs[0]:
+        with db_connect() as conn:
+            announcement_count=conn.execute("SELECT COUNT(*) n FROM announcements").fetchone()["n"]
+            assignment_count=conn.execute("SELECT COUNT(*) n FROM assignments").fetchone()["n"]
+        a,b=st.columns(2); a.metric("Published announcements",announcement_count); b.metric("Assignments",assignment_count)
+    with faculty_tabs[1]:
+        with st.form("faculty_announcement_form",clear_on_submit=True):
+            title=st.text_input("Announcement title")
+            details=st.text_area("Announcement details")
+            publish=st.form_submit_button("Publish announcement",type="primary")
+        if publish:
+            if title.strip() and details.strip():
+                with db_connect() as conn: conn.execute("INSERT INTO announcements(title,details) VALUES(?,?)",(title.strip(),details.strip())); conn.commit()
+                st.success("Announcement published."); st.rerun()
+            else: st.error("Add a title and details.")
+    with faculty_tabs[2]:
+        with st.form("faculty_assignment_form",clear_on_submit=True):
+            course=st.selectbox("Course",["B.Tech CSE","B.Tech IT","B.Tech ECE","B.Tech Mechanical","MBA","MCA","All courses"])
+            title=st.text_input("Assignment title")
+            details=st.text_area("Instructions")
+            due_date=st.date_input("Due date")
+            publish_assignment=st.form_submit_button("Create assignment",type="primary")
+        if publish_assignment:
+            if title.strip():
+                with db_connect() as conn: conn.execute("INSERT INTO assignments(course,title,details,due_date) VALUES(?,?,?,?)",(course,title.strip(),details.strip(),due_date.isoformat())); conn.commit()
+                st.success("Assignment created."); st.rerun()
+            else: st.error("Enter an assignment title.")
+    with faculty_tabs[3]:
+        with db_connect() as conn: rows=[dict(r) for r in conn.execute("SELECT name,department,designation,email,phone,office FROM faculty ORDER BY department,name").fetchall()]
+        if rows: st.dataframe(rows,use_container_width=True,hide_index=True)
+        else: st.info("Faculty directory is not populated yet.")
     st.stop()
 
 # ---------------- Student dashboard ----------------
