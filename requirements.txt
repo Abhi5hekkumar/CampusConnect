@@ -4,3 +4,4 @@ python-dotenv
 SpeechRecognition
 gTTS
 streamlit-mic-recorder
+pydub
