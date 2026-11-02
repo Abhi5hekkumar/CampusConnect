@@ -2,6 +2,8 @@
 
 An AI-powered college assistant built with Python and Streamlit to help students access academic information through conversational text and voice interactions.
 
+**🚀 Live Demo:** [Visit College Voice Chatbot](https://info-campusconnect.streamlit.app/)
+
 **Project Status:** 🚧 Active Development
 
 ## About the Project
