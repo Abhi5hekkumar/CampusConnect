@@ -10,8 +10,7 @@ from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
-from google import genai
-from google.genai import types
+from groq import Groq
 import speech_recognition as sr
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
@@ -26,58 +25,44 @@ FAQ_PATH = BASE_DIR / "faqs.csv"
 st.set_page_config(page_title="GNIT College Help Desk", page_icon="🎓", layout="wide")
 st.markdown("""
 <style>
-  .block-container {padding-top: 1.7rem; padding-bottom: 2.5rem; max-width: 1280px;}
-  /* Prevent uploaded/profile images and form controls from overflowing their columns. */
-  div[data-testid="stImage"] {max-width: 100%;}
-  div[data-testid="stImage"] img {max-width: 100%; height: auto; object-fit: cover;}
-  div[data-testid="stFileUploader"] {min-width: 0;}
-  div[data-testid="stForm"] {border: 1px solid rgba(120,130,150,.20); border-radius: 18px; padding: 1.25rem; background: rgba(120,130,150,.035);}
-  .auth-hero {padding: 1.25rem 1.5rem; border-radius: 16px; background: #173a63; color: white; min-height: auto; margin-bottom: 1rem;}
-  .auth-hero p {color: rgba(255,255,255,.88); line-height: 1.55; margin-bottom: 0;}
-  .auth-eyebrow {text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; font-weight: 700; color: #b9d9f7;}
-  .auth-feature {display:none;}
-  .public-info-scroll {max-height: 190px; overflow-y: auto; padding: .25rem .5rem .5rem 0; line-height: 1.55;}
-  .portal-brand {font-size: .82rem; letter-spacing: .11em; text-transform: uppercase; color: #64748b; font-weight: 700;}
-  div[data-testid="stRadio"] div[role="radiogroup"] {gap: .5rem;}
-  div[data-testid="stRadio"] label {border: 1px solid #d8dee8; border-radius: 12px; padding: .55rem .8rem; background: rgba(120,130,150,.035);}
-  
-  .profile-card {padding: 1rem; border: 1px solid rgba(120,130,150,.20); border-radius: 18px; background: rgba(120,130,150,.035);}
-  [data-testid="stMetric"] {background: rgba(120,120,120,.07); padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(120,120,120,.16);}
-  /* Keep every navigation tab visible by wrapping tabs onto multiple rows. */
-  div[data-testid="stTabs"] [data-baseweb="tab-list"],
-  div[data-testid="stTabs"] [role="tablist"] {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    overflow-x: visible !important;
-    white-space: normal !important;
-    gap: 0.25rem 0.45rem !important;
-    height: auto !important;
-  }
-  div[data-testid="stTabs"] [data-baseweb="tab"] {
-    flex: 0 0 auto !important;
-    white-space: normal !important;
-    min-height: 2.5rem !important;
-  }
-  div[data-testid="stTabs"] button {font-weight: 600;}
-  div.stButton > button, div.stFormSubmitButton > button {border-radius: 12px; font-weight: 650; min-height: 3rem;}
-  div[data-testid="stChatMessage"] {border-radius: 14px;}
-  [data-testid="stSidebar"] div.stButton > button {min-height: 2.05rem !important; padding: .28rem .35rem !important; font-size: .82rem !important; line-height: 1.15 !important; border-radius: 9px !important; white-space: normal !important;}
-  [data-testid="stSidebar"] [data-testid="stSelectbox"] {margin-bottom: .25rem;}
-  [data-testid="stSidebar"] hr {margin: .45rem 0;}
-  .sidebar-user {padding:.65rem .7rem;border-radius:12px;background:rgba(100,120,150,.10);margin-bottom:.5rem;}
-  .public-info-card {height:100%;}
-
-  .portal-hero {padding: 1.1rem 1.25rem; border: 1px solid rgba(120,120,120,.18); border-radius: 18px; background: linear-gradient(120deg, rgba(80,130,220,.10), rgba(80,190,170,.07)); margin-bottom: .75rem;}
-  .portal-subtitle {color: #747985; font-size: .95rem;}
-  div[data-testid="stImage"] img {border-radius: 16px; display: block;}
+:root { --brand:#1a73e8; --brand-dark:#1558b0; --ink:#202124; --muted:#5f6368; --line:#dadce0; --surface:#fff; --canvas:#f8fafd; }
+.stApp { background:var(--canvas); color:var(--ink); }
+.block-container { max-width: 1440px; padding: 2rem 2.4rem 3rem; }
+h1,h2,h3 { color:var(--ink); letter-spacing:-.025em; }
+h1 { font-size:2.25rem !important; font-weight:650 !important; }
+h2 { font-weight:620 !important; }
+p, label, .stMarkdown { color:var(--ink); }
+.portal-brand { font-size:.78rem; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); font-weight:700; margin-bottom:.45rem; }
+div[data-testid="stForm"] { border:1px solid var(--line); border-radius:20px; padding:1.5rem; background:#fff; box-shadow:0 1px 2px rgba(60,64,67,.08); }
+div[data-testid="stVerticalBlockBorderWrapper"] { border-color:var(--line) !important; border-radius:18px !important; background:#fff; }
+div[data-testid="stTextInput"] input, div[data-testid="stTextArea"] textarea, div[data-testid="stSelectbox"] [data-baseweb="select"] { border-radius:10px; }
+div.stButton > button, div.stFormSubmitButton > button { border-radius:999px; min-height:2.8rem; font-weight:600; padding:.45rem 1.25rem; transition:all .15s ease; }
+div.stButton > button[kind="primary"], div.stFormSubmitButton > button[kind="primary"] { background:var(--brand); border-color:var(--brand); color:#fff; }
+div.stButton > button[kind="primary"]:hover, div.stFormSubmitButton > button[kind="primary"]:hover { background:var(--brand-dark); border-color:var(--brand-dark); }
+div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { padding:.7rem 1rem; font-weight:550; }
+div[data-testid="stTabs"] button[aria-selected="true"] { color:var(--brand); }
+div[data-testid="stMetric"] { border:1px solid var(--line); border-radius:16px; background:#fff; padding:1rem 1.15rem; box-shadow:0 1px 2px rgba(60,64,67,.05); }
+div[data-testid="stChatMessage"] { background:#fff; border:1px solid #e8eaed; border-radius:16px; padding:1rem; }
+[data-testid="stSidebar"] { background:#f1f5f9; border-right:1px solid var(--line); }
+[data-testid="stSidebar"] .block-container { padding:1.2rem .9rem; }
+[data-testid="stSidebar"] div.stButton > button { border-radius:12px; text-align:left; min-height:2.7rem; font-size:.92rem; }
+[data-testid="stImage"] img { max-width:100%; height:auto; object-fit:cover; border-radius:14px; }
+div[data-testid="stFileUploader"] { min-width:0; }
+[data-testid="stAlert"] { border-radius:14px; }
+.portal-hero { padding:1.4rem 1.6rem; border:1px solid #d2e3fc; border-radius:20px; background:linear-gradient(120deg,#eaf2fe,#f8fbff); margin-bottom:1rem; }
+.portal-subtitle { color:var(--muted); font-size:.98rem; }
+.sidebar-user { padding:.8rem; border-radius:14px; background:#fff; border:1px solid var(--line); margin-bottom:.75rem; }
+.public-info-scroll { max-height:220px; overflow-y:auto; line-height:1.6; }
+@media (max-width: 768px) { .block-container {padding:1rem .8rem 2rem;} h1 {font-size:1.8rem !important;} }
 </style>
 """, unsafe_allow_html=True)
 
-API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 if not API_KEY:
-    st.error("Gemini API key missing. Set GEMINI_API_KEY in your .env file.")
+    st.error("Groq API key missing. Add GROQ_API_KEY to your .env file.")
     st.stop()
-client = genai.Client(api_key=API_KEY)
+client = Groq(api_key=API_KEY)
 
 if not FAQ_PATH.exists():
     st.error("faqs.csv was not found beside app.py.")
@@ -251,36 +236,71 @@ with db_connect() as conn:
 
 # ---------------- Preserve the existing voice chatbot ----------------
 def transcribe_audio(audio_bytes):
+    """Transcribe microphone audio with Groq Whisper; no local FFmpeg required."""
     if not audio_bytes:
         return None
-    recognizer = sr.Recognizer()
     try:
-        seg = AudioSegment.from_file(BytesIO(audio_bytes))
-        wav_io = BytesIO()
-        seg.export(wav_io, format="wav")
-        wav_io.seek(0)
-        with sr.AudioFile(wav_io) as source:
-            audio_data = recognizer.record(source)
-        return recognizer.recognize_google(
-            audio_data, language=st.session_state.selected_language_code
+        # Streamlit mic recorder commonly returns WebM/Opus bytes. Groq accepts
+        # the original media bytes directly, avoiding a local ffprobe dependency.
+        audio_file = ("student_question.webm", audio_bytes)
+        transcription = client.audio.transcriptions.create(
+            file=audio_file,
+            model=os.getenv("GROQ_AUDIO_MODEL", "whisper-large-v3-turbo"),
+            response_format="text",
         )
-    except sr.UnknownValueError:
+        text = getattr(transcription, "text", transcription)
+        text = str(text).strip()
+        if text:
+            return text
         st.warning("Could not understand the audio. Please try again.")
         return None
-    except Exception as e:
-        st.error(f"Audio processing failed. Ensure FFmpeg is installed. Details: {e}")
-        return None
+    except Exception as groq_error:
+        # Keep a local fallback for WAV recordings where SpeechRecognition can
+        # decode the audio without FFmpeg.
+        try:
+            recognizer = sr.Recognizer()
+            with sr.AudioFile(BytesIO(audio_bytes)) as source:
+                audio_data = recognizer.record(source)
+            return recognizer.recognize_google(
+                audio_data, language=st.session_state.selected_language_code
+            )
+        except Exception:
+            st.error(
+                "Voice transcription failed. You can still type your question. "
+                f"Details: {groq_error}"
+            )
+            return None
 
 def text_to_audio_autoplay(text, lang_code):
+    """Generate a natural neural voice similar in style to a polished assistant voice."""
     try:
-        tts = gTTS(text=text, lang=lang_code, slow=False)
-        audio_bytes = BytesIO()
-        tts.write_to_fp(audio_bytes)
-        audio_bytes.seek(0)
-        b64 = base64.b64encode(audio_bytes.read()).decode()
-        return f'<audio autoplay controls><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
+        import asyncio
+        import edge_tts
+
+        voice_map = {
+            "en": "en-US-AriaNeural",
+            "hi": "hi-IN-SwaraNeural",
+            "fr": "fr-FR-DeniseNeural",
+            "de": "de-DE-KatjaNeural",
+            "es": "es-ES-ElviraNeural",
+        }
+        voice = voice_map.get((lang_code or "en").split("-")[0], "en-US-AriaNeural")
+
+        async def synthesize():
+            communicate = edge_tts.Communicate(text, voice)
+            audio = bytearray()
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio.extend(chunk["data"])
+            return bytes(audio)
+
+        audio_bytes = asyncio.run(synthesize())
+        if not audio_bytes:
+            raise RuntimeError("The voice service returned no audio.")
+        b64 = base64.b64encode(audio_bytes).decode()
+        return f'<audio autoplay controls><source src="data:audio/mpeg;base64,{b64}" type="audio/mpeg"></audio>'
     except Exception as e:
-        st.warning(f"Could not generate audio: {e}")
+        st.warning(f"Could not generate assistant voice. You can still read the response. Details: {e}")
         return None
 
 def get_bot_response(user_query, language_name, language_code, student_data):
@@ -313,23 +333,40 @@ CRITICAL RULES:
 7. If the user asks for full timetable, reply that they can see it via the Timetable button.
 """
     try:
-        response = client.models.generate_content(
-            model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
-            contents=user_query,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.3,
-                max_output_tokens=700,
-            ),
-        )
-        return (response.text or "").strip() or "I couldn't generate a response. Please try rephrasing your question."
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_query},
+        ]
+        configured_model = os.getenv("GROQ_MODEL", "").strip()
+        model_candidates = []
+        for candidate in [configured_model, "openai/gpt-oss-120b", "llama-3.1-8b-instant"]:
+            if candidate and candidate not in model_candidates:
+                model_candidates.append(candidate)
+        last_error = None
+        for model_name in model_candidates:
+            try:
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=700,
+                )
+                return (response.choices[0].message.content or "").strip() or "I couldn't generate a response. Please try rephrasing your question."
+            except Exception as model_error:
+                last_error = model_error
+                error_lower = str(model_error).lower()
+                # Retry only for unavailable model IDs; don't mask auth, quota, or network errors.
+                if any(token in error_lower for token in ["model_not_found", "does not exist", "decommissioned", "model is not available"]):
+                    continue
+                raise
+        raise last_error
     except Exception as e:
         error_text = str(e)
-        if "404" in error_text or "NOT_FOUND" in error_text:
-            return "The configured Gemini model is unavailable for this API key. Check GEMINI_MODEL in .env (recommended: gemini-3.8-flash) and confirm the key is valid."
-        if "401" in error_text or "403" in error_text or "API_KEY_INVALID" in error_text:
-            return "Gemini rejected the API key. Check GEMINI_API_KEY in .env; do not share the key in chat or screenshots."
-        return f"I couldn't reach the AI service just now. Please try again. (Details: {error_text[:220]})"
+        if "401" in error_text or "403" in error_text or "authentication" in error_text.lower():
+            return "Groq rejected the API key. Check GROQ_API_KEY in your .env file. Never share your key in chat."
+        if "model" in error_text.lower() and ("not found" in error_text.lower() or "decommission" in error_text.lower()):
+            return "The configured Groq model is unavailable. Check GROQ_MODEL in your .env file."
+        return f"I couldn't reach the AI service just now. Please try again. (Details: {error_text[:180]})"
 
 # ---------------- Session state ----------------
 defaults = {
@@ -903,6 +940,77 @@ with st.sidebar:
     if student_data.get("profile_picture"):
         st.image(BytesIO(student_data["profile_picture"]), width=64)
     st.markdown(f'<div class="sidebar-user"><b>Signed in:</b> {student_data["name"]}<br><span style="color:#7a8190;font-size:.85rem">{student_data.get("course") or "Course not set"}</span></div>', unsafe_allow_html=True)
+
+    # Prominent PagePilot launcher appears near the top of the student sidebar.
+    st.markdown("""
+    <style>
+      .pagepilot-launch-card {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 1.35rem 0 1.8rem;
+        padding: 22px 18px;
+        min-height: 116px;
+        border-radius: 22px;
+        color: #fff !important;
+        text-decoration: none !important;
+        background: linear-gradient(125deg, #9333ea 0%, #4f46e5 48%, #0284c7 100%);
+        border: 1px solid rgba(255,255,255,.55);
+        box-shadow: 0 10px 26px rgba(79,70,229,.22);
+        transition: transform .18s ease, box-shadow .18s ease;
+      }
+      .pagepilot-launch-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 30px rgba(79,70,229,.30);
+      }
+      .pagepilot-launch-icon {
+        flex: 0 0 56px;
+        width: 56px; height: 56px;
+        display: grid; place-items: center;
+        font-size: 32px;
+        border-right: 1px solid rgba(255,255,255,.45);
+        padding-right: 12px;
+      }
+      .pagepilot-launch-copy { flex: 1; min-width: 0; }
+      .pagepilot-launch-title {
+        font-size: 1.35rem; line-height: 1.2; font-weight: 800;
+        margin-bottom: 7px; letter-spacing: -.02em;
+      }
+      .pagepilot-launch-subtitle {
+        font-size: .92rem; line-height: 1.35; opacity: .96;
+      }
+      .pagepilot-launch-arrow {
+        flex: 0 0 44px; width: 44px; height: 44px;
+        border-radius: 50%; background: #fff; color: #4f46e5;
+        display: grid; place-items: center; font-size: 25px; font-weight: 700;
+      }
+      .pagepilot-most-used {
+        position: absolute; top: -13px; right: 12px;
+        border-radius: 999px; padding: 5px 12px;
+        color: #5b21b6; background: #fff;
+        border: 1px solid #e9d5ff;
+        box-shadow: 0 3px 10px rgba(0,0,0,.08);
+        font-size: .75rem; font-weight: 800;
+      }
+      @media (max-width: 420px) {
+        .pagepilot-launch-card { gap: 10px; padding: 18px 13px; }
+        .pagepilot-launch-icon { flex-basis: 46px; width: 46px; font-size: 27px; }
+        .pagepilot-launch-title { font-size: 1.15rem; }
+        .pagepilot-launch-subtitle { font-size: .82rem; }
+        .pagepilot-launch-arrow { flex-basis: 36px; width: 36px; height: 36px; }
+      }
+    </style>
+    <a class="pagepilot-launch-card" href="https://pagepilot-ai.streamlit.app" target="_blank" rel="noopener noreferrer" aria-label="Open PagePilot AI Exam Prep and Study Hub">
+      <span class="pagepilot-most-used">♛ Most Used</span>
+      <span class="pagepilot-launch-icon">🎓</span>
+      <span class="pagepilot-launch-copy">
+        <span class="pagepilot-launch-title">PagePilot</span>
+        <span class="pagepilot-launch-subtitle">AI Exam Prep &amp; Study Hub</span>
+      </span>
+      <span class="pagepilot-launch-arrow">→</span>
+    </a>
+    """, unsafe_allow_html=True)
     st.markdown("### ⚙️ Controls")
     languages = {
         "English": "en", "Hindi (हिन्दी)": "hi", "Punjabi (ਪੰਜਾਬੀ)": "pa",
@@ -920,25 +1028,10 @@ with st.sidebar:
         st.session_state.language_changed = True
     else:
         st.session_state.selected_language_code = languages[selected_language_name]
-    clear_col, timetable_col = st.columns(2)
-    with clear_col:
-        if st.button("🗑️ Clear chat", key="global_clear_chat", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.last_prompt = None
-            st.rerun()
-    with timetable_col:
-        if st.button("🗓️ Timetable", key="global_toggle_timetable", use_container_width=True):
-            st.session_state.show_timetable = not st.session_state.show_timetable
     st.markdown("##### 🎙️ Voice input")
     voice_input = mic_recorder(start_prompt="🎙️ Speak", stop_prompt="⏹️ Stop", key="voice_recorder_sidebar_global")
     if voice_input and voice_input.get("bytes"):
         st.session_state.voice_input = voice_input["bytes"]
-    if st.session_state.show_timetable:
-        student_timetable = get_course_timetable(student_data["course"])
-        days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-        st.caption("Weekly timetable")
-        for day in days_order:
-            st.caption(f"{day}: {student_timetable.get(day, 'Not published')}")
     st.divider()
     st.markdown("### 🧭 Services")
     for start in range(0, len(nav_items), 2):
@@ -949,6 +1042,7 @@ with st.sidebar:
                 if st.button(f"{emoji} {label}", key=f"nav_{label}", use_container_width=True, type="primary" if selected else "secondary"):
                     st.session_state.active_section = label
                     st.rerun()
+
     st.divider()
     if st.button("🚪 Log out", use_container_width=True, key="student_logout"):
         logout()
@@ -1007,6 +1101,15 @@ if active_section == "My Profile":
 if active_section == "AI Help Desk":
     st.caption(f"Course: {student_data['course']}  •  Fee status: {student_data['fee_status'] or 'Not available'}")
 
+
+    chat_title_col, chat_clear_col = st.columns([5, 1])
+    with chat_title_col:
+        st.markdown("#### Ask the AI Help Desk")
+    with chat_clear_col:
+        if st.button("🗑️ Clear", key="chat_clear_current", help="Clear this conversation"):
+            st.session_state.messages = []
+            st.session_state.last_prompt = None
+            st.rerun()
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -1072,17 +1175,65 @@ if active_section == "Library":
     if filtered: st.dataframe(filtered, use_container_width=True, hide_index=True)
     else: st.info("No matching book records found. Ask the library team to update the inventory.")
 
+if active_section == "PagePilot Exam Prep":
+    st.markdown("### 🧠 PagePilot Exam Prep")
+    st.link_button("🚀 Launch PagePilot Exam Prep", "https://pagepilot-ai.streamlit.app",
+                   use_container_width=True, type="primary")
+
+
 if active_section == "Campus map & rooms":
-    st.subheader("📍 Campus locations and classroom directions")
-    with db_connect() as conn: rows = conn.execute("SELECT name, building, room, details, map_url FROM campus_locations ORDER BY name").fetchall()
-    if rows:
-        for r in rows:
-            with st.container(border=True):
-                st.markdown(f"**{r['name']}**")
-                st.write(" • ".join(str(v) for v in [r['building'], ('Room '+r['room']) if r['room'] else None] if v))
-                if r['details']: st.write(r['details'])
-                if r['map_url'] and str(r['map_url']).startswith(('https://','http://')): st.markdown(f"[Open map / directions]({r['map_url']})")
-    else: st.info("Campus locations are not available yet. The administrator can add verified room and building directions.")
+    st.markdown("""
+    <style>
+    .campus-map-hero { padding: 1.6rem 1.8rem; border-radius: 20px;
+        background: linear-gradient(135deg,#e8f0fe 0%,#f8faff 60%,#eaf4ff 100%);
+        border: 1px solid #d6e4ff; margin-bottom: 1.25rem; }
+    .campus-map-hero h2 { margin: 0 0 .4rem 0; color: #202124; }
+    .campus-map-hero p { margin: 0; color: #5f6368; }
+    .destination-card { border: 1px solid #dadce0; border-radius: 16px;
+        padding: 1rem; background: #fff; min-height: 118px; }
+    </style>
+    <div class="campus-map-hero">
+      <h2>📍 Find your way around GNIOT</h2>
+      <p>Choose a campus landmark to open directions from your current location.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    destinations = [
+        ("📚", "Library", "GNIOT College Library, Greater Noida"),
+        ("🏫", "Girls' Hostel", "GNIOT Girls Hostel, Greater Noida"),
+        ("🏫", "Boys' Hostel", "GNIOT Boys Hostel, Greater Noida"),
+        ("🍽️", "Canteen", "GNIOT College Canteen, Greater Noida"),
+        ("🏢", "Academic Block", "GNIOT Academic Block, Greater Noida"),
+    ]
+    import urllib.parse
+    st.markdown("#### Campus destinations")
+    st.caption("Select a destination below. Google Maps will open and use your device location when permission is enabled.")
+    cols = st.columns(3, gap="medium")
+    for i, (emoji, label, query) in enumerate(destinations):
+        url = "https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(query) + "&travelmode=walking"
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div class="destination-card">
+              <div style="font-size:1.8rem;margin-bottom:.35rem">{emoji}</div>
+              <div style="font-weight:650;color:#202124;font-size:1.05rem">{label}</div>
+              <div style="color:#5f6368;font-size:.85rem;margin-top:.25rem">Walking directions</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.link_button("Get directions →", url, use_container_width=True)
+    st.info("For live directions, allow location access in your browser and make sure your device's location services are turned on.")
+    with st.expander("Additional campus rooms", expanded=False):
+        with db_connect() as conn:
+            rows = conn.execute("SELECT name, building, room, details, map_url FROM campus_locations ORDER BY name").fetchall()
+        if rows:
+            for r in rows:
+                with st.container(border=True):
+                    st.markdown(f"**{r['name']}**")
+                    details = " • ".join(str(v) for v in [r['building'], ('Room '+r['room']) if r['room'] else None] if v)
+                    if details: st.write(details)
+                    if r['details']: st.write(r['details'])
+                    if r['map_url'] and str(r['map_url']).startswith(("https://","http://")):
+                        st.link_button("Open directions", r['map_url'])
+        else:
+            st.caption("Additional room directions will appear here when published by the administrator.")
 
 if active_section == "Announcements":
     st.subheader("📣 College announcements")
@@ -1135,9 +1286,18 @@ if active_section == "Assignments":
 
 if active_section == "Placements":
     st.subheader("🎯 Placements and visiting companies")
+    st.markdown(
+        "Explore placement updates, recruiters, and career opportunities published by GNIOT."
+    )
+    st.link_button(
+        "Visit the official GNIOT Placement website ↗",
+        "https://www.gniotgroup.edu.in/placement.php",
+        use_container_width=False,
+    )
     with db_connect() as conn:
         companies=conn.execute("SELECT * FROM placement_companies ORDER BY visit_year DESC,name").fetchall()
     if companies:
+        st.markdown("### Campus placement companies")
         for company in companies:
             with st.container(border=True):
                 left,right=st.columns([1,4])
@@ -1148,12 +1308,55 @@ if active_section == "Placements":
                     st.markdown(f"**{company['name']}**")
                     if company["visit_year"]: st.caption("Visit / placement year: "+company["visit_year"])
                     if company["notes"]: st.write(company["notes"])
-    else: st.info("Placement company details will appear here after the administrator publishes verified company names and logos.")
+    else:
+        st.info("Local placement company details will appear here when the administrator publishes them. Use the official placement website for current updates.")
 
 if active_section == "Campus life":
-    st.subheader("🏟️ Hostel, grounds, sports, and campus life")
-    with db_connect() as conn: campus_rows=conn.execute("SELECT * FROM campus_content ORDER BY id DESC").fetchall()
+    st.subheader("🏡 Hostel life at GNIOT")
+    st.markdown(
+        "Hostel life at the **Greater Noida Institute of Technology (GNIOT)** offers a "
+        "**vibrant, structured, and closely-knit campus experience for outstation students "
+        "coming from across India**."
+    )
+    st.markdown("### Accommodation and rooms")
+    st.markdown(
+        "- **On-campus living:** Separate residential blocks for boys and girls are located inside the campus, a short walk from the academic blocks.\n"
+        "- **Room options:** Double- or triple-sharing, with occasional single rooms; AC, non-AC, and air-cooler options may be available.\n"
+        "- **Furnishings:** Basic furniture includes a bed, mattress, study table, chair, cupboard, and bookshelf. Room amenities may vary.\n"
+        "- **First-year students:** Dedicated wings or blocks may be used to support transition and student safety."
+    )
+    st.markdown("### Facilities and amenities")
+    st.markdown(
+        "- **Internet:** Wi-Fi and LAN connectivity in residential blocks.\n"
+        "- **Food and mess:** Mess meals and on-campus cafeterias for snacks and refreshments.\n"
+        "- **Recreation:** Common rooms, indoor games, gym, and nearby outdoor sports facilities.\n"
+        "- **Utilities:** Power backup, drinking water, laundry/housekeeping, and hostel wardens."
+    )
+    st.caption("Hostel facilities, room types, and services can change. Confirm current availability and fees with the college.")
+    st.markdown("### Explore the hostel and campus")
+    gallery = [
+        ("Common lounge", "campus_images/hostel_lounge.jpg"),
+        ("Girls’ hostel exterior", "campus_images/girls_hostel.jpg"),
+        ("Hostel room", "campus_images/hostel_room.jpg"),
+        ("Dining hall", "campus_images/dining_hall.jpg"),
+        ("Gym", "campus_images/gym.jpg"),
+        ("Hostel courtyard", "campus_images/hostel_courtyard.jpg"),
+        ("Boys’ hostel reception", "campus_images/boys_hostel_lobby.jpg"),
+        ("Boys’ hostel entrance", "campus_images/boys_hostel_gate.jpg"),
+        ("Outdoor sports court", "campus_images/sports_court.jpg"),
+    ]
+    cols = st.columns(3)
+    for idx, (caption, relative_path) in enumerate(gallery):
+        with cols[idx % 3]:
+            image_path = BASE_DIR / relative_path
+            if image_path.exists():
+                st.image(str(image_path), caption=caption, use_container_width=True)
+    st.markdown("### Official hostel information")
+    st.link_button("View GNIOT hostel details ↗", "https://www.gniotgroup.edu.in/hostel.php")
+    with db_connect() as conn:
+        campus_rows=conn.execute("SELECT * FROM campus_content ORDER BY id DESC").fetchall()
     if campus_rows:
+        st.markdown("### More campus updates")
         for item in campus_rows:
             with st.container(border=True):
                 st.markdown(f"#### {item['title']}")
@@ -1162,7 +1365,6 @@ if active_section == "Campus life":
                 if item["media"]:
                     if item["media_type"] and item["media_type"].startswith("video/"): st.video(item["media"])
                     elif item["media_type"] and item["media_type"].startswith("image/"): st.image(BytesIO(item["media"]),use_container_width=True)
-    else: st.info("Hostel, sports, ground, and fest information will be published here by the administrator.")
 
 if active_section == "Upcoming events":
     st.subheader("📅 Upcoming college events")
