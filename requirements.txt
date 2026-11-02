@@ -3,3 +3,4 @@ edge-tts>=6.1.12
 python-dotenv
 SpeechRecognition
 gTTS
+streamlit-mic-recorder
