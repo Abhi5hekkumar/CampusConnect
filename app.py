@@ -2,6 +2,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+
+def get_config(name: str, default: str = "") -> str:
+    """Read Streamlit Cloud Secrets first, then fall back to local environment."""
+    try:
+        value = st.secrets.get(name, None)
+    except Exception:
+        value = None
+    if value is None or str(value) == "":
+        value = os.getenv(name, default)
+    return str(value if value is not None else default)
 import base64
 import hmac
 import secrets
@@ -58,9 +68,9 @@ div[data-testid="stFileUploader"] { min-width:0; }
 </style>
 """, unsafe_allow_html=True)
 
-API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+API_KEY = get_config("GROQ_API_KEY").strip()
 if not API_KEY:
-    st.error("Groq API key missing. Add GROQ_API_KEY to your .env file.")
+    st.error("Groq API key missing. Add GROQ_API_KEY under Streamlit App Settings → Secrets.")
     st.stop()
 client = Groq(api_key=API_KEY)
 
@@ -196,20 +206,33 @@ def get_course_timetable(course):
     return {row["day"]: row["schedule"] for row in rows}
 
 def bootstrap_admin_from_environment():
-    """Optional: create/update the configured admin using secrets stored in .env."""
-    username = os.getenv("ADMIN_USERNAME", "").strip()
-    password = os.getenv("ADMIN_PASSWORD", "")
+    """Create the configured administrator from Streamlit Secrets or local .env.
+
+    The configured password is synchronized to this designated admin account so
+    a stale local SQLite password cannot block the deployed administrator login.
+    """
+    username = get_config("ADMIN_USERNAME").strip()
+    password = get_config("ADMIN_PASSWORD")
     if not username or not password:
         return
+
     with db_connect() as conn:
-        row = conn.execute("SELECT username, role FROM students WHERE username = ?", (username,)).fetchone()
+        row = conn.execute(
+            "SELECT username FROM students WHERE lower(username)=lower(?)",
+            (username,)
+        ).fetchone()
+
         if row:
-            # Never reset the admin password on every Streamlit rerun.
-            conn.execute("UPDATE students SET role='admin' WHERE username=?", (username,))
+            conn.execute(
+                "UPDATE students SET password=?, name=?, role='admin', active=1 "
+                "WHERE lower(username)=lower(?)",
+                (hash_password(password), "College Administrator", username)
+            )
         else:
             conn.execute(
-                """INSERT INTO students (username, password, name, fee_status, course, email, role)
-                   VALUES (?, ?, ?, 'N/A', 'Administrator', NULL, 'admin')""",
+                """INSERT INTO students
+                   (username, password, name, fee_status, course, email, role, active)
+                   VALUES (?, ?, ?, 'N/A', 'Administrator', NULL, 'admin', 1)""",
                 (username, hash_password(password), "College Administrator")
             )
         conn.commit()
